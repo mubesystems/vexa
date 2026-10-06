@@ -1,0 +1,56 @@
+services:
+  vexa:
+    image: vexaai/vexa-lite:v012
+    shm_size: 2gb
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - storage
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=vexa
+      - DB_USER=postgres
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - ADMIN_TOKEN=${ADMIN_TOKEN}
+      - ADMIN_API_TOKEN=${ADMIN_TOKEN}
+      - VEXA_API_KEY=${VEXA_API_KEY}
+      - TRANSCRIPTION_SERVICE_URL=${TRANSCRIPTION_SERVICE_URL}
+      - TRANSCRIPTION_SERVICE_TOKEN=${TRANSCRIPTION_SERVICE_TOKEN}
+      - TRANSCRIPTION_MODEL=${TRANSCRIPTION_MODEL:-whisper-1}
+      - MINIO_ENDPOINT=storage:9000
+      - MINIO_ACCESS_KEY=${STORAGE_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${STORAGE_SECRET_KEY}
+      - MINIO_BUCKET=vexa
+      - MINIO_SECURE=false
+      - VEXA_PUBLIC_API_URL=https://vexa.mubesystems.com
+      - TERMINAL_PUBLIC_URL=https://vexa.mubesystems.com
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    command: ["-c", "idle_in_transaction_session_timeout=60000"]
+    environment:
+      - POSTGRES_DB=vexa
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - TZ=UTC
+      - PGTZ=UTC
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  storage:
+    image: versity/versitygw:v1.8.0
+    restart: unless-stopped
+    environment:
+      - ROOT_ACCESS_KEY=${STORAGE_ACCESS_KEY}
+      - ROOT_SECRET_KEY=${STORAGE_SECRET_KEY}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - mkdir -p /srv/vexa-storage/data /srv/vexa-storage/iam && exec versitygw --port :9000 --health /health --iam-dir /srv/vexa-storage/iam --quiet posix /srv/vexa-storage/data
+    volumes:
+      - storagedata:/srv/vexa-storage
+
+volumes:
+  pgdata:
+  storagedata:
